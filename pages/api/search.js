@@ -1,32 +1,38 @@
 // pages/api/search.js
 
 export default async function handler(req, res) {
-  const { searchTerm } = req.query;
+  const { q, channelId } = req.query;
 
-  if (!searchTerm) {
-    return res.status(400).json({ error: 'Missing search term.' });
+  if (!q) {
+    return res.status(400).json({ error: "Missing search query" });
   }
 
-  const API_KEY = "AIzaSyC2fuJMXHfsHiX4sTPopHoR2V_luSVFRn4";
-
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchTerm)}&key=${API_KEY}`;
-
   try {
-    const response = await fetch(url);
-    const data = await response.json();
+    const apiKey = process.env.YOUTUBE_API_KEY || 'AIzaSyC2fuJMXHfsHiX4sTPopHoR2V_luSVFRn4'; // Use your API key
+    let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(q)}&key=${apiKey}`;
 
-    if (data.error) {
-      return res.status(500).json({ error: data.error.message });
+    if (channelId) {
+      searchUrl += `&channelId=${channelId.replace('@', '')}`;
     }
 
-    const videos = data.items.map(item => ({
+    const response = await fetch(searchUrl);
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('YouTube API error:', data);
+      return res.status(500).json({ error: 'Failed to fetch data', details: data });
+    }
+
+    const videos = data.items.map((item) => ({
       title: item.snippet.title,
       videoId: item.id.videoId,
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+      description: item.snippet.description,
+      thumbnail: item.snippet.thumbnails.default.url,
     }));
 
     res.status(200).json({ videos });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch YouTube videos.' });
+    console.error('Server error:', error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 }
