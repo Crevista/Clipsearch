@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const YOUTUBE_API_KEY = 'YOUR_API_KEY_HERE'; // replace this later with env variable
+const YOUTUBE_API_KEY = 'AIzaSyC2fuJMXHfsHiX4sTPopHoR2V_luSVFRn4';
 
 export default async function handler(req, res) {
   const { query, channelUsername } = req.body;
