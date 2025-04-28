@@ -1,18 +1,32 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+// pages/api/search.js
 
-  const { searchTerm, channel } = req.body;
+export default async function handler(req, res) {
+  const { searchTerm } = req.query;
 
   if (!searchTerm) {
-    return res.status(400).json({ error: 'Missing search term' });
+    return res.status(400).json({ error: 'Missing search term.' });
   }
 
-  // Example dummy result (for now)
-  const dummyResults = [
-    { text: `Found "${searchTerm}" in a dummy transcript!`, timestamp: "00:01:23", videoId: "dQw4w9WgXcQ" }
-  ];
+  const API_KEY = "AIzaSyC2fuJMXHfsHiX4sTPopHoR2V_luSVFRn4";
 
-  return res.status(200).json({ results: dummyResults });
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchTerm)}&key=${API_KEY}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.error) {
+      return res.status(500).json({ error: data.error.message });
+    }
+
+    const videos = data.items.map(item => ({
+      title: item.snippet.title,
+      videoId: item.id.videoId,
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+    }));
+
+    res.status(200).json({ videos });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch YouTube videos.' });
+  }
 }
