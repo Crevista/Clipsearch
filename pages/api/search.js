@@ -1,44 +1,81 @@
+import axios from 'axios';
+
+const YOUTUBE_API_KEY = 'YOUR_API_KEY_HERE'; // replace this later with env variable
+
 export default async function handler(req, res) {
   const { query, channelUsername } = req.body;
-  const apiKey = "AIzaSyC2fuJMXHfsHiX4sTPopHoR2V_luSVFRn4";
 
-  let channelId = "";
-
-  if (channelUsername) {
-    try {
-      const channelResponse = await fetch(
-        `https://youtube.googleapis.com/youtube/v3/channels?part=id&forUsername=${channelUsername.replace('@', '')}&key=${apiKey}`
-      );
-      const channelData = await channelResponse.json();
-      if (channelData.items && channelData.items.length > 0) {
-        channelId = channelData.items[0].id;
-      }
-    } catch (error) {
-      console.error("Error fetching channel ID:", error);
-    }
-  }
-
-  let searchUrl = `https://youtube.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(query)}&key=${apiKey}`;
-  if (channelId) {
-    searchUrl += `&channelId=${channelId}`;
+  if (!query) {
+    return res.status(400).json({ error: 'Query is required' });
   }
 
   try {
-    const searchResponse = await fetch(searchUrl);
-    const searchData = await searchResponse.json();
+    let channelId = '';
 
-    if (searchData.items) {
-      const results = searchData.items.map(item => ({
-        title: item.snippet.title,
-        videoId: item.id.videoId,
-        thumbnail: item.snippet.thumbnails.default.url
-      }));
-      res.status(200).json(results);
-    } else {
-      res.status(404).json({ error: "No videos found." });
+    // If channelUsername is provided, convert it to channelId
+    if (channelUsername) {
+      const channelResponse = await axios.get(
+        `https://www.googleapis.com/youtube/v3/channels`,
+        {
+          params: {
+            part: 'id',
+            forUsername: channelUsername.replace('@', ''),
+            key: YOUTUBE_API_KEY,
+          },
+        }
+      );
+
+      if (channelResponse.data.items.length > 0) {
+        channelId = channelResponse.data.items[0].id;
+      } else {
+        return res.status(404).json({ error: 'Channel not found' });
+      }
     }
+
+    // Search videos
+    const searchParams = {
+      part: 'snippet',
+      q: query,
+      type: 'video',
+      videoCaption: 'closedCaption', // only videos with subtitles
+      maxResults: 10,
+      key: YOUTUBE_API_KEY,
+    };
+
+    if (channelId) {
+      searchParams.channelId = channelId;
+    }
+
+    const videoSearch = await axios.get(
+      'https://www.googleapis.com/youtube/v3/search',
+      { params: searchParams }
+    );
+
+    const videos = await Promise.all(
+      videoSearch.data.items.map(async (item) => {
+        const captionsResponse = await axios.get(
+          `https://video.google.com/timedtext?lang=en&v=${item.id.videoId}`
+        );
+
+        const captions = captionsResponse.data;
+        const regex = new RegExp(query, 'i');
+
+        if (regex.test(captions)) {
+          return {
+            title: item.snippet.title,
+            videoId: item.id.videoId,
+            thumbnail: item.snippet.thumbnails.default.url,
+          };
+        }
+        return null;
+      })
+    );
+
+    const filteredVideos = videos.filter((v) => v !== null);
+
+    res.status(200).json({ results: filteredVideos });
   } catch (error) {
-    console.error("Error during search:", error);
-    res.status(500).json({ error: "Internal server error." });
+    console.error(error.response?.data || error.message);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 }
