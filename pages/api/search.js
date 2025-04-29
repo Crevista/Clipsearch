@@ -1,36 +1,34 @@
 export default async function handler(req, res) {
-  const { query } = req.query;
+  const query = req.query.q;
 
   if (!query) {
-    return res.status(400).json({ error: "Missing query parameter" });
+    return res.status(400).json({ error: 'Missing query parameter' });
   }
 
-  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!process.env.RAPIDAPI_KEY) {
+    return res.status(500).json({ error: 'Missing RapidAPI key' });
+  }
 
   try {
     const response = await fetch(
-      `https://filmot-tube-metadata-archive.p.rapidapi.com/getsearchsubtitles?query=${encodeURIComponent(query)}`,
+      `https://filmot-tube-metadata-archive.p.rapidapi.com/searchSubtitles?query=${encodeURIComponent(query)}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: {
-          "X-RapidAPI-Key": apiKey,
-          "X-RapidAPI-Host": "filmot-tube-metadata-archive.p.rapidapi.com",
+          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
+          'X-RapidAPI-Host': 'filmot-tube-metadata-archive.p.rapidapi.com',
         },
       }
     );
 
-    const data = await response.json();
-
-    // DEBUGGING: Log the raw API result
-    console.log("Filmot API result:", data);
-
-    if (!data || !Array.isArray(data.results)) {
-      return res.status(500).json({ error: "Unexpected API response" });
+    if (!response.ok) {
+      const errorData = await response.text();
+      return res.status(response.status).json({ error: 'Filmot API error', details: errorData });
     }
 
-    res.status(200).json(data.results);
-  } catch (error) {
-    console.error("API error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    const data = await response.json();
+    res.status(200).json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 }
