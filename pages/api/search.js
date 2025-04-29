@@ -1,32 +1,15 @@
-import { searchYouTubeVideos, getCaptions, findWordInCaptions } from "../../lib/youtube";
+export default async function handler(req, res) { const query = req.query.q;
 
-export default async function handler(req, res) {
-  const { word, channel } = req.query;
+if (!query) { return res.status(400).json({ error: "Missing query parameter 'q'" }); }
 
-  if (!word) {
-    return res.status(400).json({ error: "Missing word" });
-  }
+try { const response = await fetch( https://filmot-tube-metadata-archive.p.rapidapi.com/getsearchsubtitles?query=${encodeURIComponent( query )}&searchManualSubs=1, { method: "GET", headers: { "X-RapidAPI-Key": process.env.RAPIDAPI_KEY, "X-RapidAPI-Host": "filmot-tube-metadata-archive.p.rapidapi.com", }, } );
 
-  try {
-    const videos = await searchYouTubeVideos(word, channel);
-
-    const results = [];
-    for (const video of videos) {
-      const captions = await getCaptions(video.id);
-      if (!captions) continue;
-
-      const matches = findWordInCaptions(captions, word);
-      if (matches.length > 0) {
-        results.push({
-          ...video,
-          matches,
-        });
-      }
-    }
-
-    res.status(200).json({ results });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to search" });
-  }
+if (!response.ok) {
+  throw new Error(`API response error: ${response.status}`);
 }
+
+const data = await response.json();
+res.status(200).json(data);
+
+} catch (error) { console.error("API request failed:", error); res.status(500).json({ error: "Internal Server Error" }); } }
+
