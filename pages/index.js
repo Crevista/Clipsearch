@@ -1,51 +1,30 @@
-import { useState } from "react";
-import Head from "next/head";
-import SearchForm from "../components/SearchForm";
-import ResultCard from "../components/ResultCard";
+// pages/index.js import { useState } from "react";
 
-export default function Home() {
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchWord, setSearchWord] = useState("");
+export default function Home() { const [query, setQuery] = useState(""); const [results, setResults] = useState([]); const [loading, setLoading] = useState(false); const [error, setError] = useState(null);
 
-  async function handleSearch(word, channel) {
-    setIsLoading(true);
-    setSearchWord(word);
-    const params = new URLSearchParams({ word });
-    if (channel) {
-      params.append("channel", channel);
-    }
-    const res = await fetch(`/api/search?${params.toString()}`);
-    const data = await res.json();
-    setResults(data.results || []);
-    setIsLoading(false);
-  }
+const handleSearch = async () => { setLoading(true); setError(null); try { const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json", }, body: JSON.stringify({ query }), }); const data = await res.json(); if (!res.ok) throw new Error(data.error || "Search failed"); setResults(data.results); } catch (err) { setError(err.message); } finally { setLoading(false); } };
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <Head>
-        <title>ClipSearch - Find Words in YouTube Videos</title>
-      </Head>
+return ( <div style={{ padding: 40, fontFamily: "sans-serif" }}> <h1 style={{ fontSize: 32, fontWeight: 700 }}>ClipSearch</h1> <input type="text" placeholder="Search YouTube subtitles..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ padding: 10, fontSize: 16, width: "60%", marginRight: 8 }} /> <button onClick={handleSearch} style={{ padding: 10, fontSize: 16 }}>Search</button>
 
-      <main className="max-w-3xl mx-auto py-10 px-4">
-        <h1 className="text-3xl font-bold text-center mb-8">ClipSearch</h1>
+{loading && <p>Loading...</p>}
+  {error && <p style={{ color: "red" }}>{error}</p>}
 
-        <SearchForm onSearch={handleSearch} isLoading={isLoading} />
+  <ul style={{ marginTop: 24 }}>
+    {results.map((clip, i) => (
+      <li key={i} style={{ marginBottom: 16 }}>
+        <a
+          href={`https://www.youtube.com/watch?v=${clip.videoId}&t=${clip.start}s`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontWeight: 600 }}
+        >
+          {clip.text}
+        </a>
+        <div style={{ fontSize: 14, color: "gray" }}>{clip.channelTitle}</div>
+      </li>
+    ))}
+  </ul>
+</div>
 
-        {isLoading && <p className="text-center mt-8">Searching...</p>}
+); }
 
-        {!isLoading && results.length > 0 && (
-          <div className="mt-8 space-y-6">
-            {results.map((video) => (
-              <ResultCard key={video.id} video={video} />
-            ))}
-          </div>
-        )}
-
-        {!isLoading && searchWord && results.length === 0 && (
-          <p className="text-center mt-8">No results found for "{searchWord}"</p>
-        )}
-      </main>
-    </div>
-  );
-}
