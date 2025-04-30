@@ -73,7 +73,9 @@ export default function Home() {
                 />
               </div>
               <p className="text-gray-700 text-sm italic mb-2">
-                "...{clip.before} <strong className='text-blue-600'>{query}</strong> {clip.after}..."
+                "...{clip.before}{" "}
+                <strong className="text-blue-600">{query}</strong>{" "}
+                {clip.after}..."
               </p>
               <a
                 href={`https://youtube.com/watch?v=${clip.videoId}&t=${Math.floor(clip.timestamp)}s`}
